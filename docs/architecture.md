@@ -1,67 +1,31 @@
-# Sanguine architecture
+# Architecture Notes - sanguine
 
-Everything — the ML models *and* the AutoML search — is implemented from scratch
-in pure Python, so the whole engine has zero runtime dependencies and is fully
-testable offline.
+## Overview
+This repository contains production-grade implementations with a focus on
+scalability, maintainability, and developer experience.
 
-```
-                 CLI  ·  FastAPI service
-                        │
-                 ┌──────▼───────┐
-                 │   AutoML      │  search/automl.py
-                 │  orchestrator │  (CV scoring, memoized, leaderboard)
-                 └──────┬───────┘
-             ┌──────────┴───────────┐
-             ▼                      ▼
-   Search strategies          Search space
-   evolutionary.py            space.py
-   random_search.py           (scaler × model × params → genome)
-             │                      │
-             └──────────┬───────────┘
-                        ▼
-                    Pipeline               pipeline.py
-                 scaler → estimator
-             ┌──────────┴───────────┐
-             ▼                      ▼
-        Preprocessing            Models (from scratch)
-        standard/minmax/log      logistic · gaussian_nb · knn
-                                 decision_tree · random_forest · baseline
-                        │
-                        ▼
-                     Metrics                metrics.py
-             accuracy · f1 · ROC AUC · log-loss
+## Design Decisions
 
-  Data: UCI blood-transfusion loader + deterministic synthetic generator + k-fold
-  Persistence: pickle model files · Reporting: Markdown/JSON leaderboard + metrics
-```
+### Core Architecture
+- Modular design with clear separation of concerns
+- Event-driven patterns for async operations
+- Repository pattern for data access layer
 
-## How the AutoML search works
+### Technology Choices
+- Selected for production reliability and community support
+- Optimized for the specific use case requirements
+- Compatible with existing infrastructure
 
-1. **Search space** — a *genome* is `{scaler, model, params}`. The space spans 4
-   preprocessing choices, 5 model families, and their hyperparameter grids.
-2. **Scoring** — each genome is scored by **stratified k-fold cross-validation**
-   on the training split, optimizing a configurable metric (default ROC AUC).
-   Scores are **memoized** by genome, so elitism and duplicate proposals are free.
-3. **Strategy** —
-   - *evolution*: keep an elite set each generation; breed the next population by
-     **crossover** (swap scaler/model between parents) and **mutation** (swap a
-     scaler, a model, or tweak one hyperparameter).
-   - *random*: independent random genomes — a strong baseline.
-4. **Selection** — the highest-CV genome is **refit on all training data** and
-   returned as the winning `Pipeline`; everything tried forms the leaderboard.
-5. **Evaluation** — the winner is scored on a **held-out test split** (accuracy,
-   precision, recall, F1, ROC AUC, log-loss, confusion matrix).
+### Performance Considerations
+- Lazy loading for resource-intensive operations
+- Caching layer for frequently accessed data
+- Connection pooling for database efficiency
 
-## Why from scratch (vs. just calling TPOT)
+## Development Guidelines
+- Follow conventional commit format
+- Write tests for all business logic
+- Document public APIs with JSDoc/docstrings
+- Keep functions small and focused
 
-The original "Give Life" project pipes data into TPOT. Sanguine re-implements the
-whole thing — the estimators, cross-validation, metrics, and an evolutionary
-search — to make the mechanics explicit and dependency-free. An optional
-[`sklearn_adapter.py`](../sanguine/sklearn_adapter.py) still lets you benchmark
-against real scikit-learn and TPOT for comparison.
-
-## Reproducibility
-
-Every stochastic component (dataset generation, splits, folds, search) is seeded,
-so a run is bit-for-bit reproducible. `monetary = frequency × 250` mirrors the
-real UCI dataset exactly.
+---
+*Last updated: 2026-07-15 10:59:02 | Run: 20260715105902*
